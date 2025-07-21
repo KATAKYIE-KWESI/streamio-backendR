@@ -44,14 +44,17 @@ public class AuthenticationController {
     }
 
     @PostMapping("/forgot-password")
-    public ResponseEntity<Void> forgotPassword(@RequestBody ForgotPasswordRequest request) {
-        authenticationService.sendResetLink(request.getEmail());
-        return ResponseEntity.ok().build();
-    }
+public ResponseEntity<?> forgotPassword(@RequestBody ForgotPasswordRequest request) {
+    authenticationService.sendResetLink(request.getEmail());
+    return ResponseEntity.ok(Collections.singletonMap("message", "OTP sent to: " + request.getEmail()));
+}
 
-    @PostMapping("/reset-password")
-    public ResponseEntity<Void> resetPassword(@RequestBody ResetPasswordRequest request) {
-        authenticationService.resetPassword(request.getToken(), request.getNewPassword());
-        return ResponseEntity.ok().build();
+
+  @PostMapping("/reset-password")
+public ResponseEntity<?> resetPassword(@RequestBody ResetPasswordRequest request) {
+    authenticationService.resetPassword(request.getToken(), request.getNewPassword());
+    return ResponseEntity.ok(Collections.singletonMap("message", "Password reset successful"));
+
+
     }
 }

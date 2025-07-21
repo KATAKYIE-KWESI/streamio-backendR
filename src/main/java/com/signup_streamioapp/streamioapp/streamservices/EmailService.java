@@ -44,6 +44,37 @@ public class EmailService {
             throw new IllegalStateException("Failed to send reset password email");
         }
     }
+      @Async
+public void sendMail(String to, String subject, String body) {
+    try {
+        MimeMessage mimeMessage = mailSender.createMimeMessage();
+        MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, "utf-8");
+        helper.setText(body, true);
+        helper.setTo(to);
+        helper.setSubject(subject);
+        helper.setFrom("no-reply@streamio.com");
+        mailSender.send(mimeMessage);
+    } catch (MessagingException e) {
+        throw new IllegalStateException("Failed to send email");
+    }
+}
+
+
+    @Async
+public void sendOtpEmail(String to, String otp) {
+    try {
+        MimeMessage mimeMessage = mailSender.createMimeMessage();
+        MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, "utf-8");
+        helper.setText(buildOtpEmail(to, otp), true);
+        helper.setTo(to);
+        helper.setSubject("Your OTP Code - Streamio Password Reset");
+        helper.setFrom("no-reply@streamio.com");
+        mailSender.send(mimeMessage);
+    } catch (MessagingException e) {
+        throw new IllegalStateException("Failed to send OTP email");
+    }
+}
+
 
     private String buildConfirmationEmail(String email, String token) {
         return "<div style=\"font-family:Helvetica,Arial,sans-serif;font-size:16px;color:#0b0c0c;padding:20px\">\n" +
@@ -102,4 +133,19 @@ public class EmailService {
                 "  <p style=\"margin-top:30px\">Thanks,<br>The Streamio Team</p>\n" +
                 "</div>";
     }
+
+    private String buildOtpEmail(String email, String otp) {
+    return "<div style='font-family:Helvetica,Arial,sans-serif;font-size:16px;color:#0b0c0c;padding:20px'>"
+            + "<h2 style='text-align:center;'>Hi " + email + ",</h2>"
+            + "<p>You requested to reset your password. Use the OTP code below:</p>"
+            + "<div style='text-align:center;margin:20px 0;'>"
+            + "<h1 style='font-size:36px;background-color:#f4f4f4;display:inline-block;padding:10px 20px;border-radius:8px;'>" + otp + "</h1>"
+            + "</div>"
+            + "<p>This code will expire in 5 minutes.</p>"
+            + "<p>If you didn’t request this, ignore this message.</p>"
+            + "<hr style='margin:30px 0;'>"
+            + "<p>Thanks,<br>The Streamio Team</p>"
+            + "</div>";
+}
+
 }

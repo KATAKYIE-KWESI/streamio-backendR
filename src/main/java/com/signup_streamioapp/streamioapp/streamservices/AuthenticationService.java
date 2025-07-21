@@ -10,109 +10,129 @@ import com.signup_streamioapp.streamioapp.AuthenticationResponse;
 import com.signup_streamioapp.streamioapp.streamcontroller.RegisterRequest;
 import com.signup_streamioapp.streamioapp.streammodels.Role;
 import com.signup_streamioapp.streamioapp.streammodels.User;
+import com.signup_streamioapp.streamioapp.streammodels.TokenType;
 import com.signup_streamioapp.streamioapp.streamrepository.UserRepository;
 import com.signup_streamioapp.streamioapp.streamrequest.AuthenticationRequest;
+
+import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
 public class AuthenticationService {
 
-        private final UserRepository userRepository;
-        private final PasswordEncoder passwordEncoder;
-        private final JwtService jwtService;
-        private final AuthenticationManager authenticationManager;
-        private final EmailService emailService;
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final JwtService jwtService;
+    private final AuthenticationManager authenticationManager;
+    private final EmailService emailService;
+    private final ConfirmationTokenService confirmationTokenService;
 
-        private String normalizeEmail(String email) {
-                return email.trim().toLowerCase();
+    private String normalizeEmail(String email) {
+        return email.trim().toLowerCase();
+    }
+
+    public AuthenticationResponse register(RegisterRequest request) {
+        String email = normalizeEmail(request.getEmail());
+
+        if (!request.getPassword().equals(request.getConfirmPassword())) {
+            throw new IllegalArgumentException("Passwords do not match");
         }
 
-        public AuthenticationResponse register(RegisterRequest request) {
-                String email = normalizeEmail(request.getEmail());
+        var existingUser = userRepository.findByEmailIgnoreCase(email);
 
-                if (!request.getPassword().equals(request.getConfirmPassword())) {
-                        throw new IllegalArgumentException("Passwords do not match");
-                }
+        if (existingUser.isPresent()) {
+            User user = existingUser.get();
 
-                var existingUser = userRepository.findByEmailIgnoreCase(email);
-
-                if (existingUser.isPresent()) {
-                        User user = existingUser.get();
-
-                        if (!user.isEnabled()) {
-                                String token = jwtService.generateToken(user);
-                                System.out.println("🔁 Resending confirmation email to: " + user.getEmail());
-                                emailService.sendConfirmationEmail(user.getEmail(), token);
-                                return AuthenticationResponse.builder()
-                                                .token(token)
-                                                .build();
-                        }
-
-                        throw new IllegalArgumentException("Email already registered");
-                }
-
-                var user = User.builder()
-                                .email(email)
-                                .password(passwordEncoder.encode(request.getPassword()))
-                                .role(Role.USER)
-                                .enabled(false)
-                                .build();
-
-                userRepository.save(user);
-
+            if (!user.isEnabled()) {
                 String token = jwtService.generateToken(user);
-                System.out.println("📨 Sending confirmation email to: " + user.getEmail());
+                System.out.println("🔁 Resending confirmation email to: " + user.getEmail());
                 emailService.sendConfirmationEmail(user.getEmail(), token);
-
                 return AuthenticationResponse.builder()
-                                .token(token)
-                                .build();
+                        .token(token)
+                        .build();
+            }
+
+            throw new IllegalArgumentException("Email already registered");
         }
 
-        public AuthenticationResponse authenticate(AuthenticationRequest request) {
-                String email = normalizeEmail(request.getEmail());
+        var user = User.builder()
+                .email(email)
+                .password(passwordEncoder.encode(request.getPassword()))
+                .role(Role.USER)
+                .enabled(false)
+                .build();
 
-                authenticationManager.authenticate(
-                                new UsernamePasswordAuthenticationToken(email, request.getPassword()));
+        userRepository.save(user);
 
-                var user = userRepository.findByEmailIgnoreCase(email)
-                                .orElseThrow(() -> new RuntimeException("User not found"));
+        String token = jwtService.generateToken(user);
+        System.out.println("📨 Sending confirmation email to: " + user.getEmail());
+        emailService.sendConfirmationEmail(user.getEmail(), token);
 
-                if (!user.isEnabled()) {
-                        throw new RuntimeException("Account not confirmed");
-                }
+        return AuthenticationResponse.builder()
+                .token(token)
+                .build();
+    }
 
-                var jwtToken = jwtService.generateToken(user);
+    public AuthenticationResponse authenticate(AuthenticationRequest request) {
+    String email = normalizeEmail(request.getEmail());
 
-                return AuthenticationResponse.builder()
-                                .token(jwtToken)
-                                .build();
-        }
+    try {
+        authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(email, request.getPassword()));
+    } catch (Exception e) {
+        e.printStackTrace(); // Optional: logs the real issue
+        throw new IllegalArgumentException("Incorrect email or password");
+    }
 
-        public void sendResetLink(String email) {
-                forgotPassword(email);
-        }
+    var user = userRepository.findByEmailIgnoreCase(email)
+            .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
-        public void forgotPassword(String email) {
-                String normalizedEmail = normalizeEmail(email);
+    if (!user.isEnabled()) {
+        throw new IllegalStateException("Please verify your email before logging in.");
+    }
 
-                var user = userRepository.findByEmailIgnoreCase(normalizedEmail)
-                                .orElseThrow(() -> new RuntimeException("User not found"));
+    var jwtToken = jwtService.generateToken(user);
 
-                String token = jwtService.generateToken(user);
+    return AuthenticationResponse.builder()
+            .token(jwtToken)
+            .build();
+}
 
-                System.out.println("🔐 Reset password token: " + token);
+    public void sendResetLink(String email) {
+        forgotPassword(email);
+    }
 
-                emailService.sendResetPasswordEmail(user.getEmail(), token);
-        }
+    public void forgotPassword(String email) {
+        String normalizedEmail = normalizeEmail(email);
 
-        public void resetPassword(String token, String newPassword) {
-                String email = normalizeEmail(jwtService.extractUsername(token));
+        var user = userRepository.findByEmailIgnoreCase(normalizedEmail)
+                .orElseThrow(() -> new RuntimeException("User not found"));
 
-                var user = userRepository.findByEmailIgnoreCase(email)
-                                .orElseThrow(() -> new RuntimeException("Invalid token"));
+        // ✅ FIXED: Pass TokenType.RESET_PASSWORD
+        String otp = confirmationTokenService.generateConfirmationToken(user, TokenType.RESET_PASSWORD);
+        String message = "Your OTP is: " + otp + "\nIt expires in 15 minutes.";
 
-                user.setPassword(passwordEncoder.encode(newPassword));
-                userRepository.save(user);
-        }
+        emailService.sendMail(user.getEmail(), "Reset Password OTP", message);
+        System.out.println("✅ OTP sent to: " + user.getEmail());
+    }
+
+    public void resetPassword(String otp, String newPassword) {
+    System.out.println("🚨 RESET PASSWORD REQUEST");
+    System.out.println("📥 Received OTP: " + otp);
+    System.out.println("🕒 Now: " + LocalDateTime.now());
+
+    var confirmationToken = confirmationTokenService.getValidToken(otp);
+
+    System.out.println("🔐 Token found for user: " + confirmationToken.getUser().getEmail());
+    System.out.println("⏱️ Token expires at: " + confirmationToken.getExpiresAt());
+
+    User user = confirmationToken.getUser();
+    user.setPassword(passwordEncoder.encode(newPassword));
+    userRepository.save(user);
+
+    confirmationToken.setConfirmedAt(LocalDateTime.now());
+    confirmationTokenService.saveConfirmationToken(confirmationToken);
+
+    System.out.println("✅ Password reset successful for: " + user.getEmail());
+    }
 }
