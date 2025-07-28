@@ -34,7 +34,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         final String path = request.getRequestURI();
         System.out.println("🚨 PATH: " + path);
         // ✅ Allow public endpoints to bypass this filter
-        if (path.equals("/api/search") ||
+        if (
                 path.startsWith("/api/v1/auth") ||
                 path.startsWith("/uploads") ||
                 path.startsWith("/api/v1/profiles")) {
