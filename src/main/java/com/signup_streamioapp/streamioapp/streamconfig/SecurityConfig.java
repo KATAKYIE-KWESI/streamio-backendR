@@ -22,46 +22,65 @@ import java.util.List;
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-        private final JwtAuthenticationFilter jwtAuthFilter;
-        private final AuthenticationProvider authenticationProvider;
+    private final JwtAuthenticationFilter jwtAuthFilter;
+    private final AuthenticationProvider authenticationProvider;
 
-        @Bean
-        public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-                http
-                                .cors().and()
-                                .csrf().disable()
-                                .authorizeHttpRequests(auth -> auth
-                                                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                                                .requestMatchers(
-                                                                "/api/v1/auth/register",
-                                                                "/api/v1/auth/authenticate",
-                                                                "/api/v1/auth/login",
-                                                                "/api/v1/auth/forgot-password",
-                                                                "/api/v1/auth/reset-password",
-                                                                "/api/v1/confirm-account",
-                                                                "/uploads/**")
-                                                .permitAll()
-                                                .requestMatchers(HttpMethod.POST, "/api/search").permitAll()
-                                                .requestMatchers("/api/v1/profiles/**").permitAll()
-                                                .anyRequest().authenticated())
-                                .sessionManagement(session -> session
-                                                .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                                .authenticationProvider(authenticationProvider)
-                                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        http
+            .cors().and()
+            .csrf().disable()
+            .authorizeHttpRequests(auth -> auth
+                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-                return http.build();
-        }
+                // Auth & Public Endpoints
+                .requestMatchers(
+                    "/api/v1/auth/register",
+                    "/api/v1/auth/authenticate",
+                    "/api/v1/auth/login",
+                    "/api/v1/auth/forgot-password",
+                    "/api/v1/auth/reset-password",
+                    "/api/v1/confirm-account",
+                    "/api/videos/upload",
+                    "/videos/**",
+                    "/uploads/**",
+                    "/api/v1/auth/ticket",     // ✅ Add this line
+                    
+                   "/api/v1/auth/cinemas"
+                   // "/api/subscription/**" // ✅ ALLOW all subscription endpoints
+                ).permitAll()
 
-        @Bean
-        public CorsConfigurationSource corsConfigurationSource() {
-                CorsConfiguration config = new CorsConfiguration();
-                config.setAllowedOrigins(List.of("*")); // ✅ Allow any origin
-                config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-                config.setAllowedHeaders(List.of("*"));
-                config.setAllowCredentials(true);
+                // Permit GET requests to /api/videos
+                .requestMatchers(HttpMethod.GET, "/api/videos").permitAll()
 
-                UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-                source.registerCorsConfiguration("/**", config);
-                return source;
-        }
+                // Permit search POSTs
+                .requestMatchers(HttpMethod.POST, "/api/search").permitAll()
+
+                // Permit profile GETs
+                .requestMatchers("/api/v1/profiles/**").permitAll()
+
+                // Require auth for anything else
+                .anyRequest().authenticated()
+            )
+            .sessionManagement(session -> session
+                .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+            )
+            .authenticationProvider(authenticationProvider)
+            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+
+        return http.build();
+    }
+
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowedOrigins(List.of("*")); // Allow all origins
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        config.setAllowedHeaders(List.of("*"));
+        config.setAllowCredentials(true);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+        return source;
+    }
 }

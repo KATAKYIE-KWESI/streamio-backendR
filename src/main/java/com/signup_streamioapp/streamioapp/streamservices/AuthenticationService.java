@@ -1,20 +1,22 @@
 package com.signup_streamioapp.streamioapp.streamservices;
 
-import lombok.RequiredArgsConstructor;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Service;
-
 import com.signup_streamioapp.streamioapp.AuthenticationResponse;
 import com.signup_streamioapp.streamioapp.streamcontroller.RegisterRequest;
 import com.signup_streamioapp.streamioapp.streammodels.Role;
-import com.signup_streamioapp.streamioapp.streammodels.User;
 import com.signup_streamioapp.streamioapp.streammodels.TokenType;
+import com.signup_streamioapp.streamioapp.streammodels.User;
 import com.signup_streamioapp.streamioapp.streamrepository.UserRepository;
 import com.signup_streamioapp.streamioapp.streamrequest.AuthenticationRequest;
 
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+
 import java.time.LocalDateTime;
+import java.util.regex.Pattern;
 
 @Service
 @RequiredArgsConstructor
@@ -27,15 +29,28 @@ public class AuthenticationService {
     private final EmailService emailService;
     private final ConfirmationTokenService confirmationTokenService;
 
+    // Normalize email (lowercase and trimmed)
     private String normalizeEmail(String email) {
         return email.trim().toLowerCase();
     }
 
+    // Basic password validation rule
+    private boolean isPasswordStrong(String password) {
+        // At least 8 characters, 1 digit, 1 upper, 1 lower, 1 special char
+        String pattern = "^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[@#$%^&+=!]).{8,}$";
+        return Pattern.matches(pattern, password);
+    }
+
+    // Register a new user
     public AuthenticationResponse register(RegisterRequest request) {
         String email = normalizeEmail(request.getEmail());
 
         if (!request.getPassword().equals(request.getConfirmPassword())) {
             throw new IllegalArgumentException("Passwords do not match");
+        }
+
+        if (!isPasswordStrong(request.getPassword())) {
+            throw new IllegalArgumentException("Password must be at least 8 characters long and include an uppercase letter, number, and special character");
         }
 
         var existingUser = userRepository.findByEmailIgnoreCase(email);
@@ -47,9 +62,7 @@ public class AuthenticationService {
                 String token = jwtService.generateToken(user);
                 System.out.println("🔁 Resending confirmation email to: " + user.getEmail());
                 emailService.sendConfirmationEmail(user.getEmail(), token);
-                return AuthenticationResponse.builder()
-                        .token(token)
-                        .build();
+                return AuthenticationResponse.builder().token(token).build();
             }
 
             throw new IllegalArgumentException("Email already registered");
@@ -59,7 +72,7 @@ public class AuthenticationService {
                 .email(email)
                 .password(passwordEncoder.encode(request.getPassword()))
                 .role(Role.USER)
-                .enabled(false)
+                .enabled(false) // initially disabled until confirmed
                 .build();
 
         userRepository.save(user);
@@ -68,47 +81,43 @@ public class AuthenticationService {
         System.out.println("📨 Sending confirmation email to: " + user.getEmail());
         emailService.sendConfirmationEmail(user.getEmail(), token);
 
-        return AuthenticationResponse.builder()
-                .token(token)
-                .build();
+        return AuthenticationResponse.builder().token(token).build();
     }
 
+    // Login authentication
     public AuthenticationResponse authenticate(AuthenticationRequest request) {
-    String email = normalizeEmail(request.getEmail());
+        String email = normalizeEmail(request.getEmail());
 
-    try {
-        authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(email, request.getPassword()));
-    } catch (Exception e) {
-        e.printStackTrace(); // Optional: logs the real issue
-        throw new IllegalArgumentException("Incorrect email or password");
+        try {
+            authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(email, request.getPassword()));
+        } catch (Exception e) {
+            throw new BadCredentialsException("Incorrect email or password");
+        }
+
+        var user = userRepository.findByEmailIgnoreCase(email)
+                .orElseThrow(() -> new BadCredentialsException("Incorrect email or password"));
+
+        if (!user.isEnabled()) {
+            throw new IllegalStateException("Please verify your email before logging in.");
+        }
+
+        var jwtToken = jwtService.generateToken(user);
+        return AuthenticationResponse.builder().token(jwtToken).build();
     }
 
-    var user = userRepository.findByEmailIgnoreCase(email)
-            .orElseThrow(() -> new IllegalArgumentException("User not found"));
-
-    if (!user.isEnabled()) {
-        throw new IllegalStateException("Please verify your email before logging in.");
-    }
-
-    var jwtToken = jwtService.generateToken(user);
-
-    return AuthenticationResponse.builder()
-            .token(jwtToken)
-            .build();
-}
-
+    // Public method to initiate password reset via OTP
     public void sendResetLink(String email) {
         forgotPassword(email);
     }
 
+    // Internal password reset OTP generation logic
     public void forgotPassword(String email) {
         String normalizedEmail = normalizeEmail(email);
 
         var user = userRepository.findByEmailIgnoreCase(normalizedEmail)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        // ✅ FIXED: Pass TokenType.RESET_PASSWORD
         String otp = confirmationTokenService.generateConfirmationToken(user, TokenType.RESET_PASSWORD);
         String message = "Your OTP is: " + otp + "\nIt expires in 15 minutes.";
 
@@ -116,23 +125,25 @@ public class AuthenticationService {
         System.out.println("✅ OTP sent to: " + user.getEmail());
     }
 
+    // Final password reset with OTP and new password
     public void resetPassword(String otp, String newPassword) {
-    System.out.println("🚨 RESET PASSWORD REQUEST");
-    System.out.println("📥 Received OTP: " + otp);
-    System.out.println("🕒 Now: " + LocalDateTime.now());
+        System.out.println("🚨 RESET PASSWORD REQUEST");
+        System.out.println("📥 Received OTP: " + otp);
+        System.out.println("🕒 Now: " + LocalDateTime.now());
 
-    var confirmationToken = confirmationTokenService.getValidToken(otp);
+        var confirmationToken = confirmationTokenService.getValidToken(otp);
 
-    System.out.println("🔐 Token found for user: " + confirmationToken.getUser().getEmail());
-    System.out.println("⏱️ Token expires at: " + confirmationToken.getExpiresAt());
+        System.out.println("🔐 Token found for user: " + confirmationToken.getUser().getEmail());
+        System.out.println("⏱️ Token expires at: " + confirmationToken.getExpiresAt());
 
-    User user = confirmationToken.getUser();
-    user.setPassword(passwordEncoder.encode(newPassword));
-    userRepository.save(user);
+        User user = confirmationToken.getUser();
+        user.setPassword(passwordEncoder.encode(newPassword));
+        user.setEnabled(true); // ✅ Fix: enable user after successful password reset
+        userRepository.save(user);
 
-    confirmationToken.setConfirmedAt(LocalDateTime.now());
-    confirmationTokenService.saveConfirmationToken(confirmationToken);
+        confirmationToken.setConfirmedAt(LocalDateTime.now());
+        confirmationTokenService.saveConfirmationToken(confirmationToken);
 
-    System.out.println("✅ Password reset successful for: " + user.getEmail());
+        System.out.println("✅ Password reset successful for: " + user.getEmail());
     }
 }

@@ -6,7 +6,7 @@ import com.signup_streamioapp.streamioapp.streamrequest.ForgotPasswordRequest;
 
 import com.signup_streamioapp.streamioapp.streamrequest.ResetPasswordRequest;
 import com.signup_streamioapp.streamioapp.streamservices.AuthenticationService;
-
+import com.signup_streamioapp.streamioapp.streamservices.SubscriptionService;
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.http.HttpStatus;
@@ -22,6 +22,7 @@ import java.util.Collections;
 public class AuthenticationController {
 
     private final AuthenticationService authenticationService;
+    private final SubscriptionService subscriptionService; // ✅ Add this line
 
     @PostMapping("/register")
     public ResponseEntity<AuthenticationResponse> register(
@@ -57,4 +58,22 @@ public ResponseEntity<?> resetPassword(@RequestBody ResetPasswordRequest request
 
 
     }
+    @GetMapping("/cinemas")
+public ResponseEntity<?> getPartnerCinemas(@RequestParam String email) {
+    try {
+        return ResponseEntity.ok(subscriptionService.getPartnerCinemas(email));
+    } catch (Exception e) {
+        return ResponseEntity.badRequest().body(Collections.singletonMap("message", e.getMessage()));
+    }
+}
+
+@GetMapping("/ticket")
+public ResponseEntity<?> getDiscountTicket(@RequestParam String email) {
+    try {
+        return ResponseEntity.ok(Collections.singletonMap("ticketCode", subscriptionService.getDiscountTicketCode(email)));
+    } catch (Exception e) {
+        return ResponseEntity.badRequest().body(Collections.singletonMap("message", e.getMessage()));
+    }
+}
+
 }

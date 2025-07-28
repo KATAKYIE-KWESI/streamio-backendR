@@ -15,6 +15,7 @@ public interface SearchLogRepository extends JpaRepository<SearchLog, Long> {
                     LOWER(search_term) LIKE '%suicide%' OR
                     LOWER(search_term) LIKE '%kill%' OR
                     LOWER(search_term) LIKE '%die%' OR
+                    LOWER(search_term) LIKE '%depression%' OR
                     LOWER(search_term) LIKE '%alone%'
                 )
             """, nativeQuery = true)

@@ -18,7 +18,7 @@ public class ConfirmationTokenService {
     private final ConfirmationTokenRepository confirmationTokenRepository;
 
     public String generateConfirmationToken(User user, TokenType tokenType) {
-        String token = generateSixDigitOTP();  // ✅ Use 6-digit numeric OTP
+        String token = generateSixDigitOTP(); // ✅ Use 6-digit numeric OTP
 
         ConfirmationToken confirmationToken = new ConfirmationToken(
                 token,
