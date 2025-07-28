@@ -1,11 +1,11 @@
-# Use Maven to build the app
-FROM maven:3.9.6-eclipse-temurin-17 AS build
+# Use Maven with JDK 21
+FROM maven:3.9.6-eclipse-temurin-21 AS build
 WORKDIR /app
 COPY . .
 RUN mvn clean package -DskipTests
 
-# Use a lightweight JDK image to run the app
-FROM openjdk:17-jdk-slim
+# Use JDK 21 for runtime too
+FROM eclipse-temurin:21-jdk
 WORKDIR /app
 COPY --from=build /app/target/streamioapp-0.0.1-SNAPSHOT.jar app.jar
 
