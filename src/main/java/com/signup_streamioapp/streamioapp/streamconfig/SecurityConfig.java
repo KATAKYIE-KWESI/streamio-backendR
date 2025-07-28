@@ -28,45 +28,44 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-            .cors().and()
-            .csrf().disable()
-            .authorizeHttpRequests(auth -> auth
-                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                .cors().and()
+                .csrf().disable()
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-                // Auth & Public Endpoints
-                .requestMatchers(
-                    "/api/v1/auth/register",
-                    "/api/v1/auth/authenticate",
-                    "/api/v1/auth/login",
-                    "/api/v1/auth/forgot-password",
-                    "/api/v1/auth/reset-password",
-                    "/api/v1/confirm-account",
-                    "/api/videos/upload",
-                    "/videos/**",
-                    "/uploads/**",
-                    "/api/v1/auth/ticket",     // ✅ Add this line
-                    
-                   "/api/v1/auth/cinemas"
-                   // "/api/subscription/**" // ✅ ALLOW all subscription endpoints
-                ).permitAll()
+                        // Auth & Public Endpoints
+                        .requestMatchers(
+                                "/",
+                                "/api/v1/auth/register",
+                                "/api/v1/auth/authenticate",
+                                "/api/v1/auth/login",
+                                "/api/v1/auth/forgot-password",
+                                "/api/v1/auth/reset-password",
+                                "/api/v1/confirm-account",
+                                "/api/videos/upload",
+                                "/videos/**",
+                                "/uploads/**",
+                                "/api/v1/auth/ticket", // ✅ Add this line
 
-                // Permit GET requests to /api/videos
-                .requestMatchers(HttpMethod.GET, "/api/videos").permitAll()
+                                "/api/v1/auth/cinemas"
+                        // "/api/subscription/**" // ✅ ALLOW all subscription endpoints
+                        ).permitAll()
 
-                // Permit search POSTs
-                .requestMatchers(HttpMethod.POST, "/api/search").permitAll()
+                        // Permit GET requests to /api/videos
+                        .requestMatchers(HttpMethod.GET, "/api/videos").permitAll()
 
-                // Permit profile GETs
-                .requestMatchers("/api/v1/profiles/**").permitAll()
+                        // Permit search POSTs
+                        .requestMatchers(HttpMethod.POST, "/api/search").permitAll()
 
-                // Require auth for anything else
-                .anyRequest().authenticated()
-            )
-            .sessionManagement(session -> session
-                .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-            )
-            .authenticationProvider(authenticationProvider)
-            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+                        // Permit profile GETs
+                        .requestMatchers("/api/v1/profiles/**").permitAll()
+
+                        // Require auth for anything else
+                        .anyRequest().authenticated())
+                .sessionManagement(session -> session
+                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authenticationProvider(authenticationProvider)
+                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
