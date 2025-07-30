@@ -28,44 +28,43 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                .cors().and()
-                .csrf().disable()
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+            .cors().and()
+            .csrf().disable()
+            .authorizeHttpRequests(auth -> auth
+                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-                        // Auth & Public Endpoints
-                        .requestMatchers(
-                                "/",
-                                "/api/v1/auth/register",
-                                "/api/v1/auth/authenticate",
-                                "/api/v1/auth/login",
-                                "/api/v1/auth/forgot-password",
-                                "/api/v1/auth/reset-password",
-                                "/api/v1/confirm-account",
-                                "/api/videos/upload",
-                                "/videos/**",
-                                "/uploads/**",
-                                "/api/v1/auth/ticket", // ✅ Add this line
+                // Auth & Public Endpoints
+                .requestMatchers(
+                    "/",
+                    "/api/v1/auth/register",
+                    "/api/v1/auth/authenticate",
+                    "/api/v1/auth/login",
+                    "/api/v1/auth/forgot-password",
+                    "/api/v1/auth/reset-password",
+                    "/api/v1/confirm-account",
+                    "/api/videos/upload",
+                    "/videos/**",
+                    "/uploads/**",
+                    "/api/v1/auth/ticket",
+                    "/api/v1/auth/cinemas",
+                    "/api/v1/test-email/**"       // <---- Added to allow test email endpoint
+                ).permitAll()
 
-                                "/api/v1/auth/cinemas"
-                        // "/api/subscription/**" // ✅ ALLOW all subscription endpoints
-                        ).permitAll()
+                // Permit GET requests to /api/videos
+                .requestMatchers(HttpMethod.GET, "/api/videos").permitAll()
 
-                        // Permit GET requests to /api/videos
-                        .requestMatchers(HttpMethod.GET, "/api/videos").permitAll()
+                // Permit search POSTs
+                .requestMatchers(HttpMethod.POST, "/api/search").permitAll()
 
-                        // Permit search POSTs
-                        .requestMatchers(HttpMethod.POST, "/api/search").permitAll()
+                // Permit profile GETs
+                .requestMatchers("/api/v1/profiles/**").permitAll()
 
-                        // Permit profile GETs
-                        .requestMatchers("/api/v1/profiles/**").permitAll()
-
-                        // Require auth for anything else
-                        .anyRequest().authenticated())
-                .sessionManagement(session -> session
-                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authenticationProvider(authenticationProvider)
-                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+                // Require auth for anything else
+                .anyRequest().authenticated())
+            .sessionManagement(session -> session
+                .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .authenticationProvider(authenticationProvider)
+            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }

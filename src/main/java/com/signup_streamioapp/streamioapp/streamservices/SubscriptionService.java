@@ -41,8 +41,7 @@ public class SubscriptionService {
 
     public boolean isSubscriptionActive(String email) {
         Optional<Subscription> subscription = subscriptionRepo.findByUserEmail(email);
-        return subscription.map(sub ->
-                sub.isActive() && sub.getEndDate().isAfter(LocalDate.now()))
+        return subscription.map(sub -> sub.isActive() && sub.getEndDate().isAfter(LocalDate.now()))
                 .orElse(false);
     }
 
@@ -60,13 +59,12 @@ public class SubscriptionService {
         };
     }
 
-    public String getDiscountTicketCode(String email)
- {
+    public String getDiscountTicketCode(String email) {
         if (!isSubscriptionActive(email)) {
             throw new RuntimeException("Subscription inactive");
         }
 
-        int random = (int)(Math.random() * 100000);
+        int random = (int) (Math.random() * 100000);
         return "STREAMIO-TICKET-" + random;
     }
 }

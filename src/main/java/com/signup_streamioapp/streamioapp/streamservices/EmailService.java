@@ -52,7 +52,8 @@ public void sendMail(String to, String subject, String body) {
         helper.setText(body, true);
         helper.setTo(to);
         helper.setSubject(subject);
-        helper.setFrom("no-reply@streamio.com");
+        helper.setFrom("qwesimike9@gmail.com");
+
         mailSender.send(mimeMessage);
     } catch (MessagingException e) {
         throw new IllegalStateException("Failed to send email");
